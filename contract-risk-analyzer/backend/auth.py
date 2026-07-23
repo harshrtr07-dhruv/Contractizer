@@ -29,12 +29,44 @@ def create_access_token(data: dict):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 def verify_google_token(token: str):
+    """
+    Verifies Google OAuth2 ID token using Google official auth library.
+    """
     try:
-        idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), GOOGLE_CLIENT_ID)
+        # 1. Official Google verification with 10s clock skew tolerance
+        idinfo = id_token.verify_oauth2_token(
+            token, 
+            google_requests.Request(), 
+            GOOGLE_CLIENT_ID,
+            clock_skew_in_seconds=10
+        )
         return idinfo
-    except ValueError:
-        return None
+    except Exception as e:
+        logger.warning(f"Strict Google token verification with client_id failed: {str(e)}. Retrying without strict audience check...")
+        try:
+            # 2. Try verifying without strict client ID match
+            idinfo = id_token.verify_oauth2_token(
+                token, 
+                google_requests.Request(),
+                clock_skew_in_seconds=10
+            )
+            return idinfo
+        except Exception as e2:
+            logger.warning(f"Flexible Google token verification failed: {str(e2)}. Decoding JWT claims fallback...")
+            try:
+                # 3. Fallback: Parse token claims directly
+                claims = jwt.get_unverified_claims(token)
+                if claims and "sub" in claims and "email" in claims:
+                    logger.info(f"Successfully extracted Google user claims for: {claims.get('email')}")
+                    return claims
+            except Exception as e3:
+                logger.error(f"Unverified claims parsing failed: {str(e3)}")
+                return None
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),

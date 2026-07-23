@@ -1,5 +1,6 @@
 # Environments
 .env
+*.env
 .venv
 env/
 venv/
@@ -30,12 +31,21 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+*.db
 
-# ML/Data
+# Node / React
+node_modules/
+frontend/dist/
+frontend/node_modules/
+
+# ML/Data/Scratch
 cuad_processed/
 results/
 label_mapping.json
 *.csv
+*test_db.py
+*run_mock_analysis.py
+*test_nda_mock.py
 
 # OS
 .DS_Store
