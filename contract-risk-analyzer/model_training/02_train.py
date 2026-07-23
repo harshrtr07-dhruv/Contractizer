@@ -56,21 +56,31 @@ def train_model():
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     
     print("Setting up Training Arguments...")
-    training_args = TrainingArguments(
-        output_dir="./results",
-        eval_strategy="epoch",
-        save_strategy="epoch",
-        learning_rate=2e-5,
-        per_device_train_batch_size=8,
-        per_device_eval_batch_size=8,
-        gradient_accumulation_steps=2,
-        num_train_epochs=15,
-        weight_decay=0.01,
-        load_best_model_at_end=True,
-        metric_for_best_model="f1",
-        push_to_hub=True,
-        hub_model_id=f"{HF_USERNAME}/{REPO_NAME}"
-    )
+    # Compatibility check for eval_strategy in newer vs older transformers
+    import transformers
+    from packaging import version
+    
+    kwargs = {
+        "output_dir": "./results",
+        "learning_rate": 2e-5,
+        "per_device_train_batch_size": 8,
+        "per_device_eval_batch_size": 8,
+        "gradient_accumulation_steps": 2,
+        "num_train_epochs": 10,
+        "weight_decay": 0.01,
+        "load_best_model_at_end": True,
+        "metric_for_best_model": "f1",
+        "save_strategy": "epoch",
+        "push_to_hub": True,
+        "hub_model_id": f"{HF_USERNAME}/{REPO_NAME}"
+    }
+    
+    if version.parse(transformers.__version__) >= version.parse("4.41.0"):
+        kwargs["eval_strategy"] = "epoch"
+    else:
+        kwargs["evaluation_strategy"] = "epoch"
+        
+    training_args = TrainingArguments(**kwargs)
     
     # Compute class weights for imbalanced dataset
     labels = dataset["train"]["label"]
@@ -83,7 +93,7 @@ def train_model():
     
     # Custom Trainer to apply class weights
     class CustomTrainer(Trainer):
-        def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
+        def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None, **kwargs):
             labels = inputs.pop("labels")
             outputs = model(**inputs)
             logits = outputs.logits
@@ -108,8 +118,12 @@ def train_model():
     print(f"Test Metrics: {test_results}")
     
     print("Pushing to Hugging Face Hub...")
-    trainer.push_to_hub()
-    print("Done! Model is live on Hugging Face.")
+    try:
+        trainer.push_to_hub()
+        print("Done! Model is live on Hugging Face.")
+    except Exception as e:
+        print(f"Failed to push to hub: {str(e)}")
+        print("Model saved locally in ./results.")
 
 if __name__ == "__main__":
     train_model()

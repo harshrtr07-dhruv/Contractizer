@@ -11,31 +11,55 @@ import json
 MODEL_NAME = "nlpaueb/legal-bert-base-uncased"
 MAX_LENGTH = 512
 
-def process_cuad():
-    # 1. Load the CUAD CSV (You need to upload 'cuad_extracted_clauses.csv' to Colab)
-    # The CUAD dataset originally comes in a SQuAD QA format (JSON).
-    # For text classification, you would extract the contract context, the clause category,
-    # and whether it is risky (present). 
+def extract_clauses_from_cuad_json(json_path="CUADv1.json"):
+    """
+    Downloads and parses the official CUADv1.json dataset into a structured DataFrame.
+    """
+    import os
+    import urllib.request
     
+    if not os.path.exists(json_path):
+        print("Downloading CUADv1.json dataset from Zenodo (~18MB)...")
+        url = "https://zenodo.org/record/4595826/files/CUADv1.json?download=1"
+        urllib.request.urlretrieve(url, json_path)
+        print("Download complete.")
+        
+    print("Parsing CUADv1.json...")
+    with open(json_path, "r", encoding="utf-8") as f:
+        cuad_data = json.load(f)
+        
+    records = []
+    for contract in cuad_data.get("data", []):
+        for para in contract.get("paragraphs", []):
+            for qa in para.get("qas", []):
+                question = qa.get("question", "")
+                category = question
+                if "'" in question:
+                    category = question.split("'")[1]
+                
+                for ans in qa.get("answers", []):
+                    ans_text = ans.get("text", "").strip()
+                    if len(ans_text) > 25:
+                        records.append({
+                            "clause_text": ans_text,
+                            "clause_category": category,
+                            "is_risky": 1
+                        })
+                        
+    df = pd.DataFrame(records)
+    print(f"Extracted {len(df)} clause annotations across {df['clause_category'].nunique()} categories.")
+    return df
+
+def process_cuad():
     print("Loading data...")
     try:
         df = pd.read_csv("cuad_extracted_clauses.csv")
-        print(f"Loaded {len(df)} clauses.")
+        print(f"Loaded {len(df)} clauses from CSV.")
     except FileNotFoundError:
-        print("WARNING: 'cuad_extracted_clauses.csv' not found. Using a dummy dataset for demonstration.")
-        df = pd.DataFrame({
-            "clause_text": [
-                "This agreement shall be governed by the laws of New York.", 
-                "Party A's liability shall not exceed the total fees paid.", 
-                "This agreement will automatically renew for successive one-year terms."
-            ] * 10,  # Duplicate to have enough rows for splitting
-            "clause_category": [
-                "Governing Law", 
-                "Limitation of Liability", 
-                "Auto-Renewal"
-            ] * 10,
-            "is_risky": [0, 1, 1] * 10
-        })
+        print("'cuad_extracted_clauses.csv' not found. Automatically extracting from CUADv1.json...")
+        df = extract_clauses_from_cuad_json()
+        if df.empty:
+            raise RuntimeError("Failed to extract data from CUAD dataset.")
     
     # Map categories to integer IDs
     unique_categories = df['clause_category'].unique().tolist()
@@ -44,7 +68,7 @@ def process_cuad():
     
     print(f"Found {len(unique_categories)} unique clause categories.")
     
-    # 2. Balance dataset (Undersampling majority classes)
+    # 2. Balance dataset (Cap samples per class to prevent heavy imbalance)
     MAX_SAMPLES_PER_CLASS = 300
     df = df.groupby('label').head(MAX_SAMPLES_PER_CLASS).reset_index(drop=True)
     print(f"Balanced dataset size: {len(df)} clauses.")
@@ -70,12 +94,12 @@ def process_cuad():
     
     # Remove string columns to format for PyTorch
     cols_to_remove = ["clause_text", "clause_category", "is_risky"]
+    for col in cols_to_remove:
+        if col in tokenized_datasets["train"].column_names:
+            tokenized_datasets = tokenized_datasets.remove_columns(col)
     if "__index_level_0__" in tokenized_datasets["train"].column_names:
-        cols_to_remove.append("__index_level_0__")
+        tokenized_datasets = tokenized_datasets.remove_columns("__index_level_0__")
         
-    tokenized_datasets = tokenized_datasets.remove_columns(cols_to_remove)
-    # tokenized_datasets.set_format("torch") # Commented out to avoid torchvision Colab bug
-    
     # 5. Save processed splits and mappings
     tokenized_datasets.save_to_disk("cuad_processed")
     
