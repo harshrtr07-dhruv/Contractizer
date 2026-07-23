@@ -3,7 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from auth import get_current_user
 import models
-from services.document_service import extract_text_from_pdf, split_into_paragraphs
+from services.pdf_service import extract_pdf_data
+from services.document_service import split_into_paragraphs
 from services.model_service import analyze_texts_with_hf
 from services.risk_scoring import get_clause_explanation
 
@@ -29,8 +30,9 @@ async def analyze_contract(
         pdf_bytes = await file.read()
         
         # 2. Extract Text
-        full_text = extract_text_from_pdf(pdf_bytes)
-        paragraphs = split_into_paragraphs(full_text)
+        pdf_info = extract_pdf_data(pdf_bytes)
+        paragraphs_data = split_into_paragraphs(pdf_info["full_text"])
+        paragraphs = [p["text"] for p in paragraphs_data]
         
         if not paragraphs:
             raise HTTPException(status_code=400, detail="Could not extract any readable text from the PDF.")

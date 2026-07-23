@@ -1,68 +1,90 @@
 """
-Deterministic Risk Scoring & Explanation Layer
-This maps CUAD clause categories to risk scores and plain English explanations.
-We use this deterministic approach rather than an LLM generation for reliability, speed, and cost.
+Context-Aware Risk Scoring & Plain-English Explanation Engine
 """
 
 # Base severity out of 10
 CLAUSE_RISK_MAP = {
-    "Limitation of Liability": 9,
-    "Uncapped Liability": 10,
-    "Auto-Renewal": 7,
-    "Governing Law": 4,
-    "Termination for Convenience": 6,
-    "Non-Compete": 8,
-    "Indemnification": 8,
-    "Exclusivity": 7,
-    "Audit Rights": 5,
-    "Force Majeure": 3,
-    "Warranty": 5,
-    "Confidentiality": 4,
-    "Liquidated Damages": 7,
-    "Default": 5
+    "Uncapped Liability": 9.5,
+    "Limitation of Liability": 6.5,
+    "Auto-Renewal": 5.5,
+    "Governing Law": 3.0,
+    "Termination for Convenience": 4.5,
+    "Non-Compete": 7.5,
+    "Indemnification": 7.0,
+    "Exclusivity": 6.0,
+    "Audit Rights": 4.0,
+    "Force Majeure": 2.5,
+    "Warranty": 3.5,
+    "Confidentiality": 3.0,
+    "Liquidated Damages": 6.5,
+    "Default": 3.0
 }
 
 # Plain English explanations
 EXPLANATION_TEMPLATES = {
-    "Limitation of Liability": "This clause limits the amount of money a party can be sued for. It is a {risk_category} risk because it restricts financial recovery in the event of a breach.",
-    "Uncapped Liability": "This clause exposes a party to unlimited financial liability. This is a {risk_category} risk because damages are not capped.",
-    "Auto-Renewal": "This contract automatically renews unless canceled in advance. This is a {risk_category} risk as you may be locked into another term unintentionally.",
-    "Governing Law": "This determines which state or country's laws govern the contract. It poses a {risk_category} risk depending on how favorable the jurisdiction is.",
-    "Termination for Convenience": "Allows one or both parties to cancel the contract at any time without cause. This creates a {risk_category} risk of sudden contract cancellation.",
-    "Non-Compete": "Restricts your ability to engage in competing business activities. This is a {risk_category} risk to future business flexibility.",
-    "Indemnification": "Requires one party to compensate the other for certain damages or losses. High risk due to potential significant financial exposure.",
-    "Exclusivity": "Requires you to work exclusively with this party. This restricts business opportunities, posing a {risk_category} risk.",
-    "Audit Rights": "Allows the other party to audit your records. This is a {risk_category} risk due to administrative burden and exposure of internal data.",
-    "Force Majeure": "Excuses performance due to unforeseeable circumstances (acts of God). Standard, but represents a {risk_category} risk if too broad or narrow.",
-    "Warranty": "Promises that a product or service will meet certain standards. A {risk_category} risk if the warranty is waived or disclaimed heavily.",
-    "Confidentiality": "Prevents disclosure of sensitive information. Poses a {risk_category} risk if the terms are one-sided or overly restrictive.",
-    "Liquidated Damages": "Pre-determines the amount of money paid if a breach occurs. A {risk_category} risk if the amount is unreasonably high.",
-    "Default": "This clause has been flagged for review. This represents a {risk_category} risk based on standard commercial standards."
+    "Limitation of Liability": "This clause limits financial liability in case of breach. It represents a {risk_category} risk.",
+    "Uncapped Liability": "Exposes a party to unlimited financial liability. This is a {risk_category} risk because damages are not capped.",
+    "Auto-Renewal": "This contract automatically renews unless canceled in advance. Represents a {risk_category} risk of unintentional renewal.",
+    "Governing Law": "Specifies the governing legal jurisdiction. Poses a {risk_category} risk depending on jurisdiction neutrality.",
+    "Termination for Convenience": "Allows cancellation without cause. Poses a {risk_category} risk to contract stability.",
+    "Non-Compete": "Restricts competing business activities. Represents a {risk_category} risk to business flexibility.",
+    "Indemnification": "Requires compensation for certain damages or losses. Represents a {risk_category} risk.",
+    "Exclusivity": "Requires working exclusively with this party, representing a {risk_category} risk to commercial freedom.",
+    "Audit Rights": "Allows auditing of internal records, posing a {risk_category} administrative risk.",
+    "Force Majeure": "Excuses performance due to unforeseeable events. Standard commercial clause with {risk_category} risk.",
+    "Warranty": "Promises product/service standards, posing a {risk_category} risk if disclaimed.",
+    "Confidentiality": "Protects proprietary information. Standard terms pose a {risk_category} risk.",
+    "Liquidated Damages": "Pre-determines damages for breach, representing a {risk_category} risk.",
+    "Default": "Flagged for standard legal review, posing a {risk_category} risk."
 }
 
 def get_risk_category(score: float) -> str:
-    if score >= 8:
+    if score >= 7.5:
         return "High"
-    elif score >= 5:
+    elif score >= 4.5:
         return "Medium"
     return "Low"
 
-def get_clause_explanation(clause_type: str, confidence_score: float = 1.0) -> dict:
+def get_clause_explanation(clause_type: str, confidence_score: float = 1.0, clause_text: str = "") -> dict:
     """
-    Returns the computed risk score and explanation for a given clause type.
+    Returns context-aware risk score and plain English explanation for a given clause.
+    Detects mutual / reciprocal terms to prevent false positive high-risk scoring on standard NDAs.
     """
+    lower = clause_text.lower()
     base_score = CLAUSE_RISK_MAP.get(clause_type, CLAUSE_RISK_MAP["Default"])
-    
-    # Adjust score based on model confidence (e.g. low confidence scales down severity slightly)
-    final_score = base_score * confidence_score
-    # Cap between 1 and 10
+
+    # 1. Detect mutual / reciprocal / standard commercial terms
+    is_mutual = any(word in lower for word in ["mutual", "reciprocal", "each party", "either party", "both parties", "standard"])
+    is_capped = "shall not exceed" in lower or "total fees" in lower or "cap" in lower or "aggregate liability" in lower
+
+    if clause_type == "Limitation of Liability":
+        if "uncapped" in lower or "unlimited liability" in lower:
+            base_score = 9.5
+        elif is_mutual or is_capped:
+            base_score = 3.2  # Standard mutual liability cap is LOW risk!
+        else:
+            base_score = 6.0
+    elif clause_type == "Governing Law":
+        base_score = 2.5 if is_mutual or any(loc in lower for loc in ["delaware", "new york", "california", "standard"]) else 3.5
+    elif clause_type == "Confidentiality":
+        base_score = 2.0 if is_mutual else 3.5
+    elif clause_type == "Termination for Convenience":
+        base_score = 3.2 if is_mutual else 5.5
+    elif clause_type == "Force Majeure":
+        base_score = 2.0
+    elif clause_type == "Indemnification":
+        base_score = 4.0 if is_mutual else 7.5
+
+    final_score = base_score * (0.8 + 0.2 * confidence_score)
     final_score = max(1.0, min(10.0, final_score))
-    
     category = get_risk_category(final_score)
-    template = EXPLANATION_TEMPLATES.get(clause_type, EXPLANATION_TEMPLATES["Default"])
     
+    template = EXPLANATION_TEMPLATES.get(clause_type, EXPLANATION_TEMPLATES["Default"])
     explanation = template.format(risk_category=category.lower())
     
+    if is_mutual:
+        explanation += " Terms are reciprocal and protect both parties equally."
+
     return {
         "risk_score": round(final_score, 1),
         "risk_category": category,

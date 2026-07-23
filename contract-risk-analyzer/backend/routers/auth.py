@@ -30,8 +30,12 @@ async def google_login(request: schemas.GoogleLoginRequest, db: AsyncSession = D
             detail="Token missing required fields",
         )
 
-    # Check if user exists
-    result = await db.execute(select(models.User).where(models.User.google_id == google_id))
+    # Check if user exists by google_id or email
+    result = await db.execute(
+        select(models.User).where(
+            (models.User.google_id == google_id) | (models.User.email == email)
+        )
+    )
     user = result.scalars().first()
 
     if not user:
@@ -40,6 +44,9 @@ async def google_login(request: schemas.GoogleLoginRequest, db: AsyncSession = D
         db.add(user)
         await db.commit()
         await db.refresh(user)
+    elif not user.google_id:
+        user.google_id = google_id
+        await db.commit()
 
     # Create JWT
     access_token = create_access_token(data={"user_id": str(user.id), "email": user.email})
