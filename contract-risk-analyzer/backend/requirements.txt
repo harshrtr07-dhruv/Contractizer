@@ -13,3 +13,4 @@ requests
 google-auth
 email-validator
 httpx
+huggingface_hub
