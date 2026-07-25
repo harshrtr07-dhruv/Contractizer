@@ -32,7 +32,9 @@ else:
         use_sqlite = True
 
 if use_sqlite:
-    DATABASE_URL = "sqlite+aiosqlite:///./contract_risk.db"
+    # Use /tmp for Vercel Serverless read-only filesystem compatibility
+    sqlite_path = "/tmp/contract_risk.db" if os.environ.get("VERCEL") else "./contract_risk.db"
+    DATABASE_URL = f"sqlite+aiosqlite:///{sqlite_path}"
 
 engine = create_async_engine(
     DATABASE_URL, 
