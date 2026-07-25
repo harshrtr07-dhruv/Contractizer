@@ -46,14 +46,12 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Create a `.env` file in the `backend` folder:
-```env
-DATABASE_URL=postgresql://postgres.yourproject:[YOUR-PASSWORD]@aws-0-region.pooler.supabase.com:6543/postgres
-SECRET_KEY=your_super_secret_jwt_key
-GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
-HUGGINGFACE_API_KEY=hf_your_api_key
-CLOUDINARY_URL=cloudinary://API_KEY:API_SECRET@CLOUD_NAME
-```
+Create a `.env` file in the `backend` folder and add the following required keys:
+- `DATABASE_URL` (Your PostgreSQL connection string)
+- `SECRET_KEY` (A secure random string for JWT)
+- `GOOGLE_CLIENT_ID` (From Google Cloud Console)
+- `HUGGINGFACE_API_KEY` (From HuggingFace)
+- `CLOUDINARY_URL` (From Cloudinary Dashboard)
 
 Start the backend:
 ```bash
@@ -66,11 +64,8 @@ cd ../frontend
 npm install
 ```
 
-Create a `.env` file in the `frontend` folder:
-```env
-VITE_API_BASE_URL=http://localhost:8000
-VITE_GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
-```
+Create a `.env` file in the `frontend` folder and add:
+- `VITE_GOOGLE_CLIENT_ID` (Must match the backend client ID)
 
 Start the frontend:
 ```bash
