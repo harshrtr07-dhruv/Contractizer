@@ -6,6 +6,10 @@ from uuid import UUID
 class GoogleLoginRequest(BaseModel):
     id_token: str
 
+class OnboardRequest(BaseModel):
+    name: str
+    age: int
+
 class Token(BaseModel):
     access_token: str
     token_type: str

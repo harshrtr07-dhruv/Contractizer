@@ -61,18 +61,13 @@ def keyword_rule_classification(text: str) -> dict | None:
 
 async def classify_single_text(client: AsyncInferenceClient, text: str) -> dict:
     """
-    Classifies a single text paragraph using keyword matching first,
-    falling back to parallel Hugging Face Zero-Shot with a 4-second timeout.
+    Classifies a single text paragraph using Hugging Face Zero-Shot with a 4-second timeout,
+    falling back to keyword matching if the API fails or times out.
     """
     if len(text.strip()) < 15:
         return {"clause_category": "Default", "confidence": 0.0}
 
-    # 1. Sub-millisecond keyword pre-classification
-    rule_match = keyword_rule_classification(text)
-    if rule_match:
-        return rule_match
-
-    # 2. Async Hugging Face Zero-Shot call with 4.0s timeout
+    # 1. Async Hugging Face Zero-Shot call with 4.0s timeout
     try:
         result = await asyncio.wait_for(
             client.zero_shot_classification(text=text, candidate_labels=CANDIDATE_LABELS),
@@ -92,6 +87,11 @@ async def classify_single_text(client: AsyncInferenceClient, text: str) -> dict:
             }
     except Exception as e:
         logger.debug(f"HF Zero-shot timeout/fallback for chunk: {str(e)}")
+
+    # 2. Fallback to keyword matching if API fails
+    rule_match = keyword_rule_classification(text)
+    if rule_match:
+        return rule_match
 
     return {"clause_category": "Default", "confidence": 0.0}
 

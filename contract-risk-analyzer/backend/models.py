@@ -45,7 +45,10 @@ class User(Base):
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
     email = Column(String, unique=True, nullable=False)
+    hashed_password = Column(String, nullable=True)
     google_id = Column(String, unique=True, nullable=True)
+    name = Column(String, nullable=True)
+    age = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     contracts = relationship("Contract", back_populates="user", cascade="all, delete-orphan")
