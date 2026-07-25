@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { UploadCloud, File, AlertCircle, Loader2 } from 'lucide-react';
-import api from '../services/api';
+import { UploadCloud, File, AlertCircle } from 'lucide-react';
+import { HudPanel, HudButton } from './hud';
+import { motion } from 'framer-motion';
 
-const UploadCard = ({ onUploadSuccess }) => {
+const UploadCard = ({ onStartUpload, onUploadSuccess }) => {
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState(null);
-  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
 
   const handleDrag = (e) => {
@@ -41,48 +41,44 @@ const UploadCard = ({ onUploadSuccess }) => {
     setDragActive(false);
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      validateAndSetFile(e.dataTransfer.files[0]);
+      const selected = e.dataTransfer.files[0];
+      validateAndSetFile(selected);
+      if (onStartUpload && selected.name.toLowerCase().endsWith('.pdf')) {
+        onStartUpload(selected);
+      }
     }
   };
 
   const handleChange = (e) => {
     e.preventDefault();
     if (e.target.files && e.target.files[0]) {
-      validateAndSetFile(e.target.files[0]);
+      const selected = e.target.files[0];
+      validateAndSetFile(selected);
+      if (onStartUpload && selected.name.toLowerCase().endsWith('.pdf')) {
+        onStartUpload(selected);
+      }
     }
   };
 
-  const handleUpload = async () => {
-    if (!file) return;
-
-    setUploading(true);
-    setError('');
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const response = await api.post('/upload/', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      setFile(null);
-      if (onUploadSuccess) {
-        onUploadSuccess(response.data);
-      }
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Upload failed. Please try again.');
-    } finally {
-      setUploading(false);
+  const handleUploadClick = () => {
+    if (file && onStartUpload) {
+      onStartUpload(file);
     }
   };
 
   return (
-    <div className="rounded-2xl bg-slate-900/50 border border-slate-800 p-6 backdrop-blur-md">
-      <h2 className="text-lg font-bold text-white mb-2">Upload Legal Contract</h2>
-      <p className="text-xs text-slate-400 mb-6">PDF files up to 20MB are processed using AI zero-shot legal risk classification.</p>
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+    >
+      <HudPanel label="FLIGHT DECK UPLOAD ZONE" accentColor="signal-yellow" className="p-6">
+        <p className="text-xs font-mono text-ink/60 mb-6">
+          PDF FILES UP TO 20MB ARE PROCESSED USING AI ZERO-SHOT HAZARD TELEMETRY.
+        </p>
 
       {error && (
-        <div className="mb-4 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
+        <div className="mb-4 p-3 rounded-none bg-clearance-pink border border-ink text-surface text-xs font-mono flex items-center gap-2">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span>{error}</span>
         </div>
@@ -93,10 +89,10 @@ const UploadCard = ({ onUploadSuccess }) => {
         onDragOver={handleDrag}
         onDragLeave={handleDrag}
         onDrop={handleDrop}
-        className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 ${
+        className={`relative border-2 border-dashed rounded-none p-8 text-center transition-all duration-200 ${
           dragActive
-            ? 'border-indigo-500 bg-indigo-500/10'
-            : 'border-slate-800 bg-slate-950/40 hover:border-slate-700'
+            ? 'border-signal-yellow bg-signal-yellow/10'
+            : 'border-ink/30 bg-surface/60 hover:border-ink'
         }`}
       >
         <input
@@ -104,49 +100,38 @@ const UploadCard = ({ onUploadSuccess }) => {
           accept=".pdf"
           onChange={handleChange}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-          disabled={uploading}
         />
 
         <div className="flex flex-col items-center gap-3">
-          <div className="p-4 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+          <div className="p-4 rounded-none bg-paper border border-ink text-ink">
             <UploadCloud className="w-8 h-8" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-slate-200">
-              Drag & Drop your contract PDF here
+            <p className="font-['TT_Lakes_Neue','Space_Grotesk'] text-sm font-bold text-ink uppercase tracking-tight">
+              DRAG & DROP CONTRACT PDF TO LAUNCH ANALYSIS
             </p>
-            <p className="text-xs text-slate-500 mt-1">or click to browse from computer</p>
+            <p className="font-mono text-xs text-ink/60 mt-1">OR CLICK TO SELECT FROM FILE SYSTEM</p>
           </div>
         </div>
       </form>
 
       {file && (
-        <div className="mt-4 p-4 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+        <div className="mt-4 p-4 rounded-none bg-surface border border-ink flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <File className="w-5 h-5 text-indigo-400" />
+            <File className="w-5 h-5 text-ink" />
             <div>
-              <p className="text-xs font-semibold text-slate-200 truncate max-w-xs">{file.name}</p>
-              <p className="text-[10px] text-slate-500">{(file.size / (1024 * 1024)).toFixed(2)} MB</p>
+              <p className="text-xs font-mono font-bold text-ink truncate max-w-xs">{file.name}</p>
+              <p className="text-[10px] font-mono text-ink/60">{(file.size / (1024 * 1024)).toFixed(2)} MB</p>
             </div>
           </div>
 
-          <button
-            onClick={handleUpload}
-            disabled={uploading}
-            className="px-4 py-2 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded-lg transition-colors flex items-center gap-2"
-          >
-            {uploading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Uploading & Analyzing...</span>
-              </>
-            ) : (
-              <span>Start Risk Analysis</span>
-            )}
-          </button>
+          <HudButton variant="caution" onClick={handleUploadClick}>
+            LAUNCH 3D FLIGHT ANALYSIS
+          </HudButton>
         </div>
       )}
-    </div>
+      </HudPanel>
+    </motion.div>
   );
 };
 
