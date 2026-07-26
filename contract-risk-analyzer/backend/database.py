@@ -46,7 +46,13 @@ AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=F
 
 Base = declarative_base()
 
+db_initialized = False
+
 async def get_db():
+    global db_initialized
+    if not db_initialized and use_sqlite:
+        await init_db()
+        db_initialized = True
     async with AsyncSessionLocal() as session:
         yield session
 
