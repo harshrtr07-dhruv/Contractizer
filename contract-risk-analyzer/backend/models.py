@@ -24,7 +24,10 @@ class GUID(TypeDecorator):
         if value is None:
             return value
         elif dialect.name == 'postgresql':
-            return str(value)
+            if isinstance(value, uuid.UUID):
+                return value
+            else:
+                return uuid.UUID(str(value))
         else:
             if isinstance(value, uuid.UUID):
                 return str(value)
