@@ -36,10 +36,13 @@ if use_sqlite:
     sqlite_path = "/tmp/contract_risk.db" if os.environ.get("VERCEL") else "./contract_risk.db"
     DATABASE_URL = f"sqlite+aiosqlite:///{sqlite_path}"
 
+# Add prepared_statement_cache_size=0 for Supabase PgBouncer compatibility
+connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {"prepared_statement_cache_size": 0, "statement_cache_size": 0}
+
 engine = create_async_engine(
     DATABASE_URL, 
     echo=False,
-    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
+    connect_args=connect_args
 )
 
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
