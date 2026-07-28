@@ -129,8 +129,8 @@ const AnalyticsPage: React.FC = () => {
     let high = 0, medium = 0, low = 0;
     contracts.forEach(c => {
       const score = c.overall_risk_score || 0;
-      if (score > 0.6) high++;
-      else if (score > 0.3) medium++;
+      if (score >= 7.5) high++;
+      else if (score >= 4.5) medium++;
       else low++;
     });
     
