@@ -98,8 +98,8 @@ const DashboardPage: React.FC = () => {
       const mappedContracts = res.data.map((c: any) => {
         let riskLevel = 'NEUTRAL';
         if (c.overall_risk_score !== null) {
-          if (c.overall_risk_score > 0.6) riskLevel = 'HIGH';
-          else if (c.overall_risk_score > 0.3) riskLevel = 'MEDIUM';
+          if (c.overall_risk_score >= 7.5) riskLevel = 'HIGH';
+          else if (c.overall_risk_score >= 4.5) riskLevel = 'MEDIUM';
           else riskLevel = 'LOW';
         } else if (c.status === 'failed') {
           riskLevel = 'HIGH'; // highlight failures
